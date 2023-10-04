@@ -1,0 +1,91 @@
+import sqlite3
+
+# 创建数据库连接
+conn = sqlite3.connect('library.db')
+c = conn.cursor()
+
+# 创建书籍表
+c.execute('''CREATE TABLE IF NOT EXISTS Books
+             (BookID INTEGER PRIMARY KEY AUTOINCREMENT,
+              Title TEXT NOT NULL,
+              Author TEXT NOT NULL,
+              ISBN TEXT,
+              Status TEXT NOT NULL)''')
+
+# 创建用户表
+c.execute('''CREATE TABLE IF NOT EXISTS Users
+             (UserID INTEGER PRIMARY KEY AUTOINCREMENT,
+              Name TEXT NOT NULL,
+              Email TEXT NOT NULL)''')
+
+# 创建预订表
+c.execute('''CREATE TABLE IF NOT EXISTS Reservations
+             (ReservationID INTEGER PRIMARY KEY AUTOINCREMENT,
+              BookID INTEGER NOT NULL,
+              UserID INTEGER NOT NULL,
+              ReservationDate TEXT,
+              FOREIGN KEY (BookID) REFERENCES Books(BookID),
+              FOREIGN KEY (UserID) REFERENCES Users(UserID))''')
+
+# 添加一本新书到Books表
+def add_book(title, author, isbn):
+    status = "Available"
+    c.execute("INSERT INTO Books (Title, Author, ISBN, Status) VALUES (?, ?, ?, ?)",
+              (title, author, isbn, status))
+    conn.commit()
+    print("书籍添加成功!")
+
+# 根据BookID查找书籍的详细信息
+def find_book(book_id):
+    c.execute('''SELECT Books.Title, Books.Author, Books.ISBN, Books.Status, Users.Name, Users.Email
+                 FROM Books
+                 LEFT JOIN Reservations ON Books.BookID = Reservations.BookID
+                 LEFT JOIN Users ON Reservations.UserID = Users.UserID
+                 WHERE Books.BookID = ?''',
+              (book_id,))
+    book_info = c.fetchone()
+    if book_info:
+        print("书籍详细信息:")
+        print("Title:", book_info[0])
+        print("Author:", book_info[1])
+        print("ISBN:", book_info[2])
+        print("Status:", book_info[3])
+        if book_info[4] and book_info[5]:
+            print("预订的用户信息:")
+            print("Name:", book_info[4])
+            print("Email:", book_info[5])
+    else:
+        print("未找到该书籍!")
+
+# 根据BookID、Title、UserID和ReservationID查询
+def search(text):
+    if text.startswith("LB"):
+        c.execute("SELECT * FROM Books WHERE BookID = ?", (text,))
+    elif text.startswith("LU"):
+        c.execute('''SELECT Books.Title, Books.Author, Books.ISBN, Books.Status, Users.Name, Users.Email
+                     FROM Books
+                     LEFT JOIN Reservations ON Books.BookID = Reservations.BookID
+                     LEFT JOIN Users ON Reservations.UserID = Users.UserID
+                     WHERE Users.UserID = ?''',
+                  (text,))
+    elif text.startswith("LR"):
+        c.execute('''SELECT Books.Title, Books.Author, Books.ISBN, Books.Status, Users.Name, Users.Email
+                     FROM Books
+                     LEFT JOIN Reservations ON Books.BookID = Reservations.BookID
+                     LEFT JOIN Users ON Reservations.UserID = Users.UserID
+                     WHERE Reservations.ReservationID = ?''',
+                  (text,))
+    else:
+        c.execute("SELECT * FROM Books WHERE Title = ?", (text,))
+
+    results = c.fetchall()
+    if results:
+        print("查询结果:")
+        for row in results:
+            print("Title:", row[1])
+            print("Author:", row[2])
+            print("ISBN:", row[3])
+            print("Status:", row[4])
+            print("------------")
+    else:
+        print("未找到匹配的结果!")
